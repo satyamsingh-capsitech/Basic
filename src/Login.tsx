@@ -1,83 +1,95 @@
-import React, { useState } from "react";
+import React from "react";
+import { useFormik } from "formik";
 import { TextField, PrimaryButton, Stack } from "@fluentui/react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+const validate = (values: { username: string; password: string }) => {
+  const errors: { username?: string; password?: string } = {};
+  if (!values.username) {
+    errors.username = "Username is required";
+  }
+  if (!values.password) {
+    errors.password = "Password is required";
+  }
+  return errors;
+};
 
 const LoginPage = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError(null); // Reset
-    try {
-      const response = await fetch("https://localhost:7147/api/Login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+  // Formik setup
+  const formik = useFormik({
+    initialValues: {
+      username: "",
+      password: "",
+    },
+    validate,
+    onSubmit: async (values) => {
+      try {
+        // Send login  API
+        const response = await axios.post(
+          "https://localhost:7147/api/Login/login",
+          {
+            username: values.username,
+            password: values.password,
+          }
+        );
+        console.log("API response:", response);
 
-      if (response.ok) {
-        navigate("/navigate");
-      } else {
-        const errorData = await response.json();
-        setError(errorData.message || "Login failed. Please try again.");
+        if (response.status === 200) {
+          const { token } = response.data;
+
+          localStorage.setItem("token", token);
+
+          localStorage.setItem("user", JSON.stringify(response.data));
+
+          navigate("/navigate");
+        } else {
+          alert("Invalid username or password");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        alert("Invalid username or password ");
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      setError("An error occurred. Please try again.");
-    }
-  };
+    },
+  });
 
   return (
-    <Stack horizontal styles={{ root: { height: "100vh" } }}>
+    <Stack horizontal styles={{ root: { height: "70vh" } }}>
       <Stack.Item
-        grow
-        styles={{
-          root: {
-            backgroundImage:
-              'url("https://lvivity.com/wp-content/uploads/2021/06/hospital-CRM.jpg")',
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          },
-        }}
-      ></Stack.Item>
-
-      <Stack.Item
-        grow
-        styles={{
-          root: {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          },
-        }}
+        grow={1}
+        styles={{ root: { paddingTop: "50px", paddingLeft: "650px" } }}
       >
-        <form
-          onSubmit={handleLogin}
-          style={{ maxWidth: "300px", width: "100%" }}
+        <Stack
+          tokens={{ childrenGap: 20 }}
+          styles={{ root: { maxWidth: 400 } }}
         >
-          <Stack tokens={{ childrenGap: 15 }}>
-            <TextField
-              label="Username"
-              value={username}
-              onChange={(e, newValue) => setUsername(newValue || "")}
-              required
-            />
-            <TextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e, newValue) => setPassword(newValue || "")}
-              required
-            />
-            {error && <p style={{ color: "red" }}>{error}</p>}
-            <PrimaryButton text="Login" type="submit" />
-          </Stack>
-        </form>
+          <TextField
+            label="Username"
+            name="username"
+            value={formik.values.username}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            errorMessage={formik.touched.username && formik.errors.username}
+            autoComplete="username"
+          />
+          <TextField
+            label="Password"
+            name="password"
+            type="password"
+            value={formik.values.password}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            errorMessage={formik.touched.password && formik.errors.password}
+            autoComplete="current-password"
+          />
+          <PrimaryButton
+            text="Login"
+            onClick={formik.handleSubmit}
+            disabled={formik.isSubmitting || !formik.isValid}
+          />
+        </Stack>
       </Stack.Item>
     </Stack>
   );

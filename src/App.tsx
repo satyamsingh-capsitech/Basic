@@ -1,23 +1,23 @@
-import { useState } from "react";
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-//import BasicForm from "./BasicForm";
 import Navigation from "./Navigation";
-import Pdf from "./Pdf";
 import Login from "./Login";
+import PrivateRoute from "./PrivateRoute"; 
 
 function App() {
   return (
-    <>
-      <Router>
-        <div className="main-container">
-          <Routes>
-            <Route path="/" element={<Login />} />
+    <Router>
+      <div className="main-container">
+        <Routes>
+          <Route path="/" element={<Login />} />
+
+        
+          <Route element={<PrivateRoute />}>
             <Route path="/navigate" element={<Navigation />} />
-          </Routes>
-        </div>
-      </Router>
-    </>
+          </Route>
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Panel,
   PanelType,
@@ -9,7 +9,7 @@ import {
   Label,
 } from "@fluentui/react";
 import { MdDelete } from "react-icons/md";
-import { Formik, Form, FieldArray, Field } from "formik";
+import { Formik, Form, FieldArray } from "formik";
 import * as Yup from "yup";
 import axios from "axios";
 
@@ -17,7 +17,27 @@ interface HealthRequestFormPanelProps {
   isOpen: boolean;
   onDismiss: () => void;
   id?: string;
-  initialData?: any;
+}
+interface FormData {
+  name: string;
+  emailId: string;
+  phoneNo: string;
+  building: string;
+  street: string;
+  landmark: string;
+  city: string;
+  district: string;
+  pincode: string;
+  state: string;
+  country: string;
+  items: ItemReqModel[];
+  discount: string;
+  amountPaid: string;
+  description: string;
+  date: string;
+  billNo: string;
+  billId: string;
+  amount: string;
 }
 
 interface ItemReqModel {
@@ -28,8 +48,10 @@ interface ItemReqModel {
   amount: string;
 }
 
-const initialValues = {
+const initialValues: FormData = {
   name: "",
+  billId: "",
+  billNo: "",
   emailId: "",
   phoneNo: "",
   building: "",
@@ -51,9 +73,11 @@ const initialValues = {
   ] as ItemReqModel[],
   discount: "",
   amountPaid: "",
-  declaration: "",
+  description: "",
+  amount: "",
   date: new Date().toISOString(),
 };
+const token = localStorage.getItem("token");
 
 const validationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
@@ -76,16 +100,59 @@ const validationSchema = Yup.object({
 const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
   isOpen,
   onDismiss,
+  id,
 }) => {
-  const handleSubmit = async (values) => {
-    // Calculate amounts for each item
+  const [formData, setFormData] = useState<FormData>(initialValues);
+
+  useEffect(() => {
+    if (id) {
+      // Fetch data by'id'
+      axios
+        .get(`https://localhost:7147/api/Health?id=${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`, // token
+          },
+        })
+        .then((response) => {
+          console.log("API response:", response);
+
+          const data = response.data;
+
+          setFormData({
+            ...data,
+            building: data?.address?.building || "",
+            street: data?.address?.street || "",
+            landmark: data?.address?.landmark || "",
+            city: data?.address?.city || "",
+            district: data?.address?.district || "",
+            pincode: data?.address?.pincode || "",
+            state: data?.address?.state || "",
+            country: data?.address?.country || "",
+            items: data?.items || [
+              {
+                description: "",
+                appliedQty: "1",
+                price: "",
+                gst: "",
+                amount: "",
+              },
+            ],
+          });
+        })
+        .catch((error) => {
+          console.error("Error fetching data for edit", error);
+        });
+    }
+  }, [id]);
+
+  const handleSubmit = async (values: FormData) => {
+    // Calculate
     values.items.forEach((item) => {
       const price = parseFloat(item.price) || 0;
       const qty = parseFloat(item.appliedQty);
       const gst = parseFloat(item.gst) || 0;
       const amount = price * qty * (1 + gst / 100);
-      // item.amount = amount.toFixed(2);
-      item.amount = Math.round(amount); // This rounds it to an integer
+      item.amount = Math.round(amount);
     });
 
     const subTotal = values.items.reduce(
@@ -97,14 +164,14 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
     const finalAmount = subTotal - discount;
 
     const amountPaid = parseFloat(values.amountPaid) || 0;
-    const balance = finalAmount - amountPaid;
+    const balance = amountPaid - finalAmount;
 
     const requestData = {
       name: values.name,
       autoNumber: 0,
-      billNo: "12345", // Static
-      billId: "12345", // Static
-      description: values.declaration,
+      billNo: values.billNo || "",
+      billId: values.billId || "",
+      description: values.description,
       emailId: values.emailId,
       phoneNo: values.phoneNo,
       address: {
@@ -129,29 +196,43 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
       finalAmount,
       amountPaid,
       balance,
-      declaration: values.declaration,
       isDeleted: true,
       date: new Date(values.date).toISOString(),
     };
 
     console.log("Request Data: ", requestData);
-
     try {
-      const response = await axios.post(
-        "https://localhost:7147/api/Health",
-        requestData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let response;
+      const token = localStorage.getItem("token");
+
+      if (id) {
+        response = await axios.put(
+          `https://localhost:7147/api/Health?id=${id}`,
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } else {
+        response = await axios.post(
+          "https://localhost:7147/api/Health",
+          requestData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
 
       if (response.status === 200) {
-        alert("Form submitted successfully!");
-        onDismiss();
+        alert(
+          id ? "Record updated successfully!" : "Record created successfully!"
+        );
+        onDismiss(); // Close the form
       } else {
-        console.error("Response status: ", response.status);
         alert("There was an issue submitting the form.");
       }
     } catch (error) {
@@ -166,15 +247,16 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
       onDismiss={onDismiss}
       type={PanelType.custom}
       customWidth="600px"
-      headerText="Add Request"
+      headerText={id ? "Edit Request" : "Add Request"}
       closeButtonAriaLabel="Close"
     >
       <Formik
-        initialValues={initialValues}
+        initialValues={formData}
         validationSchema={validationSchema}
+        enableReinitialize={true}
         onSubmit={handleSubmit}
       >
-        {({ values, errors, touched, handleChange, handleBlur, isValid }) => (
+        {({ values, errors, touched, handleChange, handleBlur }) => (
           <Form>
             <Stack tokens={{ childrenGap: 15 }}>
               {/* Personal Details */}
@@ -240,6 +322,7 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
                   onBlur={handleBlur}
                 />
               </Stack>
+
               <Stack horizontal tokens={{ childrenGap: 10 }}>
                 <TextField
                   label="City"
@@ -298,12 +381,12 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
                             value={item.description}
                             onChange={handleChange}
                             onBlur={handleBlur}
-                            errorMessage={
-                              touched.items?.[index]?.description &&
-                              errors.items?.[index]?.description
-                                ? errors.items[index].description
-                                : ""
-                            }
+                            // errorMessage={
+                            //   touched.items?.[index]?.description &&
+                            //   errors.items?.[index]?.description
+                            //     ? errors.items[index].description
+                            //     : ""
+                            // }
                           />
                           <TextField
                             label="Quantity"
@@ -334,10 +417,23 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
                             value={item.amount}
                             disabled
                           />
-                          <MdDelete
-                            title="Remove Item"
-                            onClick={() => remove(index)}
-                          />
+                          {/* Disable delete icon 1st time */}
+                          {values.items.length > 1 && (
+                            <div
+                              title="Remove Item"
+                              onClick={
+                                values.items.length > 1
+                                  ? () => remove(index)
+                                  : undefined
+                              }
+                              style={{
+                                cursor: "pointer",
+                                color: "red",
+                              }}
+                            >
+                              <MdDelete />
+                            </div>
+                          )}
                         </Stack>
                       </Stack>
                     ))}
@@ -383,11 +479,11 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
               </Stack>
 
               <TextField
-                label="Declaration"
-                name="declaration"
+                label="Description"
+                name="description"
                 multiline
                 rows={3}
-                value={values.declaration}
+                value={values.description}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
@@ -395,7 +491,7 @@ const HealthRequestFormPanel: React.FC<HealthRequestFormPanelProps> = ({
                 <PrimaryButton
                   type="submit"
                   text="Submit"
-                  disabled={!isValid}
+                  //disabled={!isValid}
                 />
                 <DefaultButton text="Cancel" onClick={onDismiss} />
               </Stack>

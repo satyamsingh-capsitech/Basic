@@ -13,7 +13,35 @@ import { toWords } from "number-to-words";
 interface ViewFormProps {
   isOpen: boolean;
   onDismiss: () => void;
-  item: any;
+  item: items;
+}
+interface items {
+  name: string;
+  emailId: string;
+  phoneNo: string;
+  building: string;
+  street: string;
+  landmark: string;
+  city: string;
+  district: string;
+  pincode: string;
+  state: string;
+  country: string;
+  // items: ItemReqModel[];
+
+  discount: string;
+  amountPaid: string;
+  description: string;
+  appliedQty:string;
+  price:string;
+  gst:string
+  date: string;
+  billNo: string;
+  billId: string;
+  amount: string;
+  finalAmount:string;
+  subTotal:string;
+  balance:string
 }
 
 const ViewForm: React.FC<ViewFormProps> = ({ isOpen, onDismiss, item }) => {
@@ -21,9 +49,7 @@ const ViewForm: React.FC<ViewFormProps> = ({ isOpen, onDismiss, item }) => {
     return <div>No data is passed</div>;
   }
   console.log("items", item);
-
-  // Utility function to render address fields
-  const renderAddress = (address: any) => {
+  const renderAddress = (address: items) => {
     if (!address) return "N/A";
     const {
       building,
@@ -43,7 +69,7 @@ const ViewForm: React.FC<ViewFormProps> = ({ isOpen, onDismiss, item }) => {
     );
   };
 
-  const renderTestDescriptions = (items: any[]) => {
+  const renderTestDescriptions = (items: items[]) => {
     if (!items || items.length === 0) {
       return (
         <tr>
@@ -219,10 +245,6 @@ const ViewForm: React.FC<ViewFormProps> = ({ isOpen, onDismiss, item }) => {
                 <td>Amount Paid:</td>
                 <td>{item.amountPaid || "0"}</td>
               </tr>
-              {/* <tr>
-                <td>Balance:</td>
-                <td>{item.balance || "0"}</td>
-              </tr> */}
               <tr>
                 <td>Balance:</td>
                 <td
